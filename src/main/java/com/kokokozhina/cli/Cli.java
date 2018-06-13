@@ -46,9 +46,8 @@ public class Cli {
         try {
             URL url = new URL(path);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            String s = (new DefaultConverter()).inputStreamToString(conn.getInputStream());
-            conn.disconnect();
-            return new ByteArrayInputStream(s.getBytes());
+            return conn.getInputStream();
+
         } catch (MalformedURLException ex) {
             System.out.println(Messages.MALFORMED_URL);
         } catch (IOException ex) {
@@ -98,6 +97,10 @@ public class Cli {
         }
 
         return null;
+    }
+
+    public static void postToLocalhost() {
+        String url = "";
     }
 
     public static void main(String[] args) throws FileNotFoundException {
