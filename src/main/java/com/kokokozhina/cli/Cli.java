@@ -6,12 +6,101 @@ import com.kokokozhina.converter.DefaultConverter;
 import com.kokokozhina.task.Task;
 
 import java.io.*;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.InputMismatchException;
 import java.util.Scanner;
 
 
 public class Cli {
-    public static void main(String[] args) throws InterruptedException, FileNotFoundException {
+
+    private static String getPath(String msg, String readOrWrite) {
+        boolean tryMore;
+
+        do {
+            System.out.println(msg);
+
+            tryMore = false;
+
+            String filePath = (new Scanner(System.in)).nextLine();
+            File file = new File(filePath);
+            if (file.isFile() && (readOrWrite.equals("Read") && file.canRead()
+                    || readOrWrite.equals("Write") && file.canWrite())) {
+                return filePath;
+            } else {
+                System.out.println(Messages.FILE_NOT_FOUND);
+                System.out.println(Messages.TRY_ONE_MORE_TIME);
+
+                if (Messages.YES.equals(new Scanner(System.in).nextLine())) {
+                    tryMore = true;
+                }
+            }
+        }
+        while (tryMore);
+
+        return null;
+    }
+
+    private static InputStream getConnection(String path) {
+        try {
+            URL url = new URL(path);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            String s = (new DefaultConverter()).inputStreamToString(conn.getInputStream());
+            conn.disconnect();
+            return new ByteArrayInputStream(s.getBytes());
+        } catch (MalformedURLException ex) {
+            System.out.println(Messages.MALFORMED_URL);
+        } catch (IOException ex) {
+            System.out.println(Messages.IO_EXCEPTION);
+        }
+
+        return null;
+    }
+
+    private static OutputStream getOutputStream() throws FileNotFoundException {
+        String path = getPath(Messages.OUTPUT_FILE_PATH, "Write");
+
+        return path != null ? new FileOutputStream(path) : null;
+    }
+
+    private static InputStream getInputStream() {
+        System.out.println(Messages.INPUT_WAY);
+        InputStream inputStream = null;
+
+        try {
+            int way = (new Scanner(System.in)).nextInt();
+
+            if (way <= 0 || way > Messages.CNT_INPUT_WAYS) {
+                throw new InputMismatchException();
+            }
+
+            if (way == 1) {
+
+                String path = getPath(Messages.INPUT_FILE_PATH, "Read");
+                if(path != null) {
+                    inputStream = new FileInputStream(path);
+                }
+
+            } else if (way == 2) {
+                System.out.println(Messages.URL_PATH);
+
+                String path = (new Scanner(System.in)).nextLine();
+                return getConnection(path);
+            }
+
+            return inputStream;
+
+        } catch (InputMismatchException ex) {
+            System.out.println(Messages.WRONG_INPUT);
+        } catch (FileNotFoundException e) {
+            System.out.println(Messages.FILE_NOT_FOUND);
+        }
+
+        return null;
+    }
+
+    public static void main(String[] args) throws FileNotFoundException {
         boolean exit = false;
 
         Handler handler = new Handler();
@@ -24,7 +113,7 @@ public class Cli {
             try {
                 num = (new Scanner(System.in)).nextInt();
 
-                if (num < 0 || num >= Messages.cnt) {
+                if (num < 0 || num > Messages.CNT_FORMATS) {
                     throw new InputMismatchException();
                 }
 
@@ -38,57 +127,12 @@ public class Cli {
                     exit = true;
                 } else {
 
-                    InputStream inputStream = null;
+                    InputStream inputStream = getInputStream();
+
                     OutputStream outputStream = null;
-                    boolean tryMore;
-
-
-                    do {
-                        System.out.println(Messages.INPUT_FILE_PATH);
-
-                        tryMore = false;
-
-                        String inputFilePath = (new Scanner(System.in)).nextLine();
-                        File inputFile = new File(inputFilePath);
-                        if (inputFile.isFile() && inputFile.canRead()) {
-                            inputStream = new FileInputStream(inputFilePath);
-                        } else {
-                            System.out.println(Messages.INPUT_FILE_NOT_FOUND);
-                            inputStream = null;
-
-                            System.out.println(Messages.TRY_ONE_MORE_TIME);
-
-                            if (Messages.YES.equals(new Scanner(System.in).nextLine())) {
-                                tryMore = true;
-                            }
-                        }
+                    if(inputStream != null) {
+                        outputStream = getOutputStream();
                     }
-                    while (tryMore);
-
-                    if (inputStream != null) {
-                        do {
-                            System.out.println(Messages.OUTPUT_FILE_PATH);
-
-                            tryMore = false;
-
-                            String outputFilePath = (new Scanner(System.in)).nextLine();
-                            File outputFile = new File(outputFilePath);
-                            if (outputFile.isFile() && outputFile.canWrite()) {
-                                outputStream = new FileOutputStream(outputFilePath);
-                            } else {
-                                System.out.println(Messages.OUTPUT_FILE_NOT_FOUND);
-                                outputStream = null;
-
-                                System.out.println(Messages.TRY_ONE_MORE_TIME);
-
-                                if (Messages.YES.equals(new Scanner(System.in).nextLine())) {
-                                    tryMore = true;
-                                }
-                            }
-                        }
-                        while (tryMore);
-                    }
-
 
                     if (inputStream != null && outputStream != null) {
                         if (num == 1) {
