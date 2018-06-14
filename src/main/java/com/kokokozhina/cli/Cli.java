@@ -4,6 +4,13 @@ import com.kokokozhina.converter.ConverterXml;
 import com.kokokozhina.handler.Handler;
 import com.kokokozhina.converter.DefaultConverter;
 import com.kokokozhina.task.Task;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.ContentType;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.json.JSONObject;
 
 import java.io.*;
 import java.net.*;
@@ -12,6 +19,8 @@ import java.util.Scanner;
 
 
 public class Cli {
+
+    private static Boolean outputToLocalHost = false;
 
     private static String getPath(String msg, String readOrWrite) {
         boolean tryMore;
@@ -66,46 +75,38 @@ public class Cli {
             switch(way) {
                 case 1:
                     path = getPath(Messages.OUTPUT_FILE_PATH, "Write");
+                    outputToLocalHost = false;
                     outputStream = path != null ? new FileOutputStream(path) : null;
                     break;
                 case 2:
-                    URL url = new URL("http://localhost:9080/");
-//                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-//                    conn.setRequestMethod("POST");
-//                    conn.setDoOutput(true);
-
-//                    outputStream = conn.getOutputStream();
-//                    outputStream.write(2234);
-//                    outputStream.close();
-//                    outputStream = null;
-                    URLConnection connection = url.openConnection();
-                    PrintStream outStream = new PrintStream(connection.getOutputStream());
-                    outStream.println("meowmeowmeow");
-                    outStream.close();
-
+                    outputToLocalHost = true;
                     break;
                 default:
-                    throw new InputMismatchException();
+                    System.out.println(Messages.WRONG_INPUT);
             }
 
         } catch (InputMismatchException ex) {
             System.out.println(Messages.WRONG_INPUT);
         } catch (FileNotFoundException e) {
             System.out.println(Messages.FILE_NOT_FOUND);
-        } catch (ProtocolException e) {
-            e.printStackTrace();
-            System.out.println(Messages.PROTOCOL_EXCEPTION);
-        } catch (MalformedURLException e) {
-            System.out.println(Messages.MALFORMED_URL);
-        } catch (IOException e) {
-            e.printStackTrace();
-            System.out.println(Messages.IO_EXCEPTION);
         }
 
         return outputStream;
 
     }
 
+
+    private static void sendPostRequest(ByteArrayOutputStream baos) throws IOException {
+        StringEntity entity = new StringEntity(baos.toString(),
+                ContentType.APPLICATION_JSON);
+
+        HttpClient httpClient = HttpClientBuilder.create().build();
+        HttpPost request = new HttpPost("http://localhost:9080/");
+        request.setEntity(entity);
+
+        HttpResponse response = httpClient.execute(request);
+//        System.out.println(response.getStatusLine().getStatusCode());
+    }
 
     private static InputStream getInputStreamForConvertation() {
         System.out.println(Messages.INPUT_WAY);
@@ -129,7 +130,7 @@ public class Cli {
                     break;
 
                 default:
-                    throw new InputMismatchException();
+                    System.out.println(Messages.WRONG_INPUT);
             }
         } catch (InputMismatchException ex) {
             System.out.println(Messages.WRONG_INPUT);
@@ -140,7 +141,7 @@ public class Cli {
         return inputStream;
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws IOException {
 
         Handler handler = new Handler();
 
@@ -167,13 +168,25 @@ public class Cli {
             }
 
             InputStream inputStream = getInputStreamForConvertation();
-
-            OutputStream outputStream = null;
-            if(inputStream != null) {
-                outputStream = getOutputStreamForConvertation();
+            if(inputStream == null) {
+                continue;
             }
 
-            if (inputStream != null && outputStream != null) {
+
+            OutputStream outputStream = getOutputStreamForConvertation();
+
+            if(outputToLocalHost) {
+                ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+                if(num == 1) {
+                    handler.addTask(new Task(inputStream, buffer,
+                            new DefaultConverter(), new DefaultConverter()));
+                } else if(num == 2) {
+                    handler.addTask(new Task(inputStream, buffer,
+                            new ConverterXml(), new DefaultConverter()));
+                }
+                sendPostRequest(buffer);
+                System.out.println(Messages.TASK_ADDED);
+            } else {
                 if (num == 1) {
                     handler.addTask(new Task(inputStream, outputStream,
                             new DefaultConverter(), new ConverterXml()));
@@ -181,7 +194,6 @@ public class Cli {
                     handler.addTask(new Task(inputStream, outputStream,
                             new ConverterXml(), new DefaultConverter()));
                 }
-
                 System.out.println(Messages.TASK_ADDED);
             }
 
