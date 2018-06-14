@@ -51,6 +51,8 @@ public interface Messages {
 
     Integer CNT_OUTPUT_WAYS = 2;
 
+    String PROTOCOL_EXCEPTION =
+            "This is very strange! Please try one more time";
 
 }
 

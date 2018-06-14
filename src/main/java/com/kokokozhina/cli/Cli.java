@@ -6,10 +6,7 @@ import com.kokokozhina.converter.DefaultConverter;
 import com.kokokozhina.task.Task;
 
 import java.io.*;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.ProtocolException;
-import java.net.URL;
+import java.net.*;
 import java.util.InputMismatchException;
 import java.util.Scanner;
 
@@ -60,27 +57,35 @@ public class Cli {
 
     private static OutputStream getOutputStreamForConvertation()  {
         System.out.println(Messages.OUTPUT_WAY);
-
+        String path;
+        OutputStream outputStream = null;
 
         try {
             int way = (new Scanner(System.in)).nextInt();
 
-            if (way <= 0 || way > Messages.CNT_OUTPUT_WAYS) {
-                throw new InputMismatchException();
-            }
+            switch(way) {
+                case 1:
+                    path = getPath(Messages.OUTPUT_FILE_PATH, "Write");
+                    outputStream = path != null ? new FileOutputStream(path) : null;
+                    break;
+                case 2:
+                    URL url = new URL("http://localhost:9080/");
+//                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+//                    conn.setRequestMethod("POST");
+//                    conn.setDoOutput(true);
 
-            if (way == 1) {
+//                    outputStream = conn.getOutputStream();
+//                    outputStream.write(2234);
+//                    outputStream.close();
+//                    outputStream = null;
+                    URLConnection connection = url.openConnection();
+                    PrintStream outStream = new PrintStream(connection.getOutputStream());
+                    outStream.println("meowmeowmeow");
+                    outStream.close();
 
-                String path = getPath(Messages.OUTPUT_FILE_PATH, "Write");
-
-                return path != null ? new FileOutputStream(path) : null;
-
-            } else if (way == 2) {
-                URL url = new URL("http://localhost:9080");
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("POST");
-                conn.setDoOutput(true);
-                return conn.getOutputStream();
+                    break;
+                default:
+                    throw new InputMismatchException();
             }
 
         } catch (InputMismatchException ex) {
@@ -89,15 +94,18 @@ public class Cli {
             System.out.println(Messages.FILE_NOT_FOUND);
         } catch (ProtocolException e) {
             e.printStackTrace();
+            System.out.println(Messages.PROTOCOL_EXCEPTION);
         } catch (MalformedURLException e) {
-            e.printStackTrace();
+            System.out.println(Messages.MALFORMED_URL);
         } catch (IOException e) {
             e.printStackTrace();
+            System.out.println(Messages.IO_EXCEPTION);
         }
 
-        return null;
+        return outputStream;
 
     }
+
 
     private static InputStream getInputStreamForConvertation() {
         System.out.println(Messages.INPUT_WAY);
@@ -133,11 +141,10 @@ public class Cli {
     }
 
     public static void main(String[] args) {
-        boolean exit = false;
 
         Handler handler = new Handler();
 
-        while (!exit) {
+        while (true) {
             System.out.println(Messages.INTRO);
 
             int num = -1;
