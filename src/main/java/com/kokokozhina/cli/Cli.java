@@ -8,6 +8,7 @@ import com.kokokozhina.task.Task;
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
+import java.net.ProtocolException;
 import java.net.URL;
 import java.util.InputMismatchException;
 import java.util.Scanner;
@@ -42,7 +43,7 @@ public class Cli {
         return null;
     }
 
-    private static InputStream getConnection(String path) {
+    private static InputStream getConnectionFromUrl(String path) {
         try {
             URL url = new URL(path);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -57,53 +58,81 @@ public class Cli {
         return null;
     }
 
-    private static OutputStream getOutputStream() throws FileNotFoundException {
-        String path = getPath(Messages.OUTPUT_FILE_PATH, "Write");
+    private static OutputStream getOutputStreamForConvertation()  {
+        System.out.println(Messages.OUTPUT_WAY);
 
-        return path != null ? new FileOutputStream(path) : null;
-    }
-
-    private static InputStream getInputStream() {
-        System.out.println(Messages.INPUT_WAY);
-        InputStream inputStream = null;
 
         try {
             int way = (new Scanner(System.in)).nextInt();
 
-            if (way <= 0 || way > Messages.CNT_INPUT_WAYS) {
+            if (way <= 0 || way > Messages.CNT_OUTPUT_WAYS) {
                 throw new InputMismatchException();
             }
 
             if (way == 1) {
 
-                String path = getPath(Messages.INPUT_FILE_PATH, "Read");
-                if(path != null) {
-                    inputStream = new FileInputStream(path);
-                }
+                String path = getPath(Messages.OUTPUT_FILE_PATH, "Write");
+
+                return path != null ? new FileOutputStream(path) : null;
 
             } else if (way == 2) {
-                System.out.println(Messages.URL_PATH);
-
-                String path = (new Scanner(System.in)).nextLine();
-                return getConnection(path);
+                URL url = new URL("http://localhost:9080");
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setDoOutput(true);
+                return conn.getOutputStream();
             }
 
-            return inputStream;
+        } catch (InputMismatchException ex) {
+            System.out.println(Messages.WRONG_INPUT);
+        } catch (FileNotFoundException e) {
+            System.out.println(Messages.FILE_NOT_FOUND);
+        } catch (ProtocolException e) {
+            e.printStackTrace();
+        } catch (MalformedURLException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
+        return null;
+
+    }
+
+    private static InputStream getInputStreamForConvertation() {
+        System.out.println(Messages.INPUT_WAY);
+        InputStream inputStream = null;
+        String path;
+
+        try {
+            int way = (new Scanner(System.in)).nextInt();
+            switch(way) {
+                case 1:
+                    path = getPath(Messages.INPUT_FILE_PATH, "Read");
+                    if(path != null) {
+                        inputStream = new FileInputStream(path);
+                    }
+                    break;
+
+                case 2:
+                    System.out.println(Messages.URL_PATH);
+                    path = (new Scanner(System.in)).nextLine();
+                    inputStream = getConnectionFromUrl(path);
+                    break;
+
+                default:
+                    throw new InputMismatchException();
+            }
         } catch (InputMismatchException ex) {
             System.out.println(Messages.WRONG_INPUT);
         } catch (FileNotFoundException e) {
             System.out.println(Messages.FILE_NOT_FOUND);
         }
 
-        return null;
+        return inputStream;
     }
 
-    public static void postToLocalhost() {
-        String url = "";
-    }
-
-    public static void main(String[] args) throws FileNotFoundException {
+    public static void main(String[] args) {
         boolean exit = false;
 
         Handler handler = new Handler();
@@ -112,7 +141,7 @@ public class Cli {
             System.out.println(Messages.INTRO);
 
             int num = -1;
-            boolean canGoNext = true;
+
             try {
                 num = (new Scanner(System.in)).nextInt();
 
@@ -121,37 +150,36 @@ public class Cli {
                 }
 
             } catch (InputMismatchException ex) {
-                canGoNext = false;
                 System.out.println(Messages.WRONG_INPUT);
+                continue;
             }
 
-            if (canGoNext) {
-                if (num == 0) {
-                    exit = true;
-                } else {
 
-                    InputStream inputStream = getInputStream();
+            if (num == 0) {
+                break;
+            }
 
-                    OutputStream outputStream = null;
-                    if(inputStream != null) {
-                        outputStream = getOutputStream();
-                    }
+            InputStream inputStream = getInputStreamForConvertation();
 
-                    if (inputStream != null && outputStream != null) {
-                        if (num == 1) {
-                            handler.addTask(new Task(inputStream, outputStream,
-                                    new DefaultConverter(), new ConverterXml()));
-                        } else if (num == 2) {
-                            handler.addTask(new Task(inputStream, outputStream,
-                                    new ConverterXml(), new DefaultConverter()));
-                        }
+            OutputStream outputStream = null;
+            if(inputStream != null) {
+                outputStream = getOutputStreamForConvertation();
+            }
 
-                        System.out.println(Messages.TASK_ADDED);
-                    }
-
+            if (inputStream != null && outputStream != null) {
+                if (num == 1) {
+                    handler.addTask(new Task(inputStream, outputStream,
+                            new DefaultConverter(), new ConverterXml()));
+                } else if (num == 2) {
+                    handler.addTask(new Task(inputStream, outputStream,
+                            new ConverterXml(), new DefaultConverter()));
                 }
+
+                System.out.println(Messages.TASK_ADDED);
             }
+
         }
+
 
         handler.killExecutor();
 
